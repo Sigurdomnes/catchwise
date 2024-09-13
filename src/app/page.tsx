@@ -1,8 +1,17 @@
-import Image from "next/image";
+import type { Metadata } from "next";
+
+export const metadata: Metadata = {
+  title: "GSE Generator",
+  description: "GSE Generator",
+};
 
 export default function Home() {
   return (
-    <div>
+    <div style={{
+      overflowY: 'auto', 
+      padding: '1rem'
+      }}>
+
     </div>
   );
 }

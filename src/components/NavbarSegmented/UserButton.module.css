@@ -1,0 +1,32 @@
+.user {
+    display: block;
+    width: 100%;
+    padding: var(--mantine-spacing-md);
+    color: light-dark(var(--mantine-color-gray-4), var(--mantine-color-dark-1));
+    position: relative;
+    margin-bottom: 1.5rem;
+  
+    @mixin hover {
+      background-color: light-dark(var(--mantine-color-gray-0), var(--mantine-color-dark-8));
+    }
+  }
+
+  .user::before {
+    content : "";
+    position: absolute;
+    left    : 5%;
+    top  : 0;
+    height  : 1px;
+    width   : 90%;  /* or 100px */
+    border-top: 1px solid #ccc;
+  }
+
+  .user::after {
+    content : "";
+    position: absolute;
+    left    : 5%;
+    bottom  : 0;
+    height  : 1px;
+    width   : 90%;  /* or 100px */
+    border-bottom: 1px solid #ccc;
+  }
