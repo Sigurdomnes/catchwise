@@ -1,42 +1,42 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Center, SegmentedControl, rem } from '@mantine/core';
-import { IconEye, IconCode, IconExternalLink, IconFishHook, IconFish } from '@tabler/icons-react';
-import {
-    IconShoppingCart,
-    IconLicense,
-    IconMessage2,
-    IconBellRinging,
-    IconMessages,
-    IconFingerprint,
-    IconKey,
-    IconSettings,
-    Icon2fa,
-    IconUsers,
-    IconFileAnalytics,
-    IconDatabaseImport,
-    IconReceipt2,
-    IconReceiptRefund,
-    IconLogout,
-    IconSwitchHorizontal,
-} from '@tabler/icons-react';
+import { IconEye, IconCode, IconFishHook, IconFish } from '@tabler/icons-react';
 import classes from './NavbarSegmented.module.css';
 import { UserButton } from './UserButton';
 import Link from 'next/link';
+import { usePathname, useRouter } from 'next/navigation';
+import { isNullOrUndefined } from 'util';
 
 const tabs = {
     preview: [
         { link: '/bluewild', label: 'Bluewild AS', icon: IconFish },
-        { link: '/fishandchips', label: 'Fish and Chips AS', icon: IconFish },
+        { link: '/fishandchips', label: 'Fish and Chips AS', icon: IconFishHook },
     ],
     edit: [
         { link: '/bluewild/edit', label: 'Bluewild AS', icon: IconFish },
-        { link: '/fishandchips/edit', label: 'Fish and Chips AS', icon: IconFish },
+        { link: '/fishandchips/edit', label: 'Fish and Chips AS', icon: IconFishHook },
     ],
 };
 
 export function NavbarSegmented() {
     const [section, setSection] = useState<'preview' | 'edit'>('preview');
-    const [active, setActive] = useState('Billing');
+    const [active, setActive] = useState<string | null>(null);
+    const path = usePathname();
+    const router = useRouter();
+
+    useEffect(() => {
+        const active = ([...tabs.edit, ...tabs.preview].find((tab: { link: string}) => tab.link === path))
+        setActive(active ? active.label : null)
+        const section = active?.link.includes('edit');
+        setSection(section ? 'edit' : 'preview')
+    })
+
+    const handleEditChange = (value: 'edit' | 'preview') => {
+        if (active) {
+            const tab = (tabs[value].find((tab: { label: string}) => tab.label === active))
+            router.push(tab ? tab.link : '/404')
+        }
+    }
 
     const links = tabs[section].map((item) => (
         <Link
@@ -44,7 +44,7 @@ export function NavbarSegmented() {
             data-active={item.label === active || undefined}
             href={item.link}
             key={item.label}
-            onClick={(event) => {
+            onClick={() => {
                 setActive(item.label);
             }}
         >
@@ -56,21 +56,24 @@ export function NavbarSegmented() {
     return (
         <nav className={classes.navbar}>
             <div>
-                <UserButton />
-
+            <UserButton />
                 <SegmentedControl
                     value={section}
-                    onChange={(value: any) => setSection(value)}
+                    onChange={
+                        (value: any) => { 
+                        setSection(value);
+                        handleEditChange(value);
+                        }
+                    }
                     transitionTimingFunction="ease"
                     fullWidth
-                    bg="dark.0"
-                    color="blue"
-                    autoContrast={true}
+                    bg="dark.6"
+                    color="cyan.9"
                     data={[
                         {
                             value: 'preview',
                             label: (
-                                <Center style={{ gap: 10 }}>
+                                <Center style={{ gap: 10, color: '#eee' }}>
                                     <IconEye style={{ width: rem(16), height: rem(16) }} />
                                     <span>Preview</span>
                                 </Center>
@@ -79,7 +82,7 @@ export function NavbarSegmented() {
                         {
                             value: 'edit',
                             label: (
-                                <Center style={{ gap: 10 }}>
+                                <Center style={{ gap: 10, color: '#eee' }}>
                                     <IconCode style={{ width: rem(16), height: rem(16) }} />
                                     <span>Edit</span>
                                 </Center>
@@ -88,20 +91,7 @@ export function NavbarSegmented() {
                     ]}
                 />
             </div>
-
             <div className={classes.navbarMain}>{links}</div>
-
-            <div className={classes.footer}>
-                <a href="#" className={classes.link} onClick={(event) => event.preventDefault()}>
-                    <IconSwitchHorizontal className={classes.linkIcon} stroke={1.5} />
-                    <span>Change account</span>
-                </a>
-
-                <a href="#" className={classes.link} onClick={(event) => event.preventDefault()}>
-                    <IconLogout className={classes.linkIcon} stroke={1.5} />
-                    <span>Logout</span>
-                </a>
-            </div>
         </nav>
     );
 }

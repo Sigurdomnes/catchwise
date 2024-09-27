@@ -7,12 +7,12 @@ export function UserButton() {
     <UnstyledButton className={classes.user}>
       <Group>
         <Avatar
-          radius="xl"
+          name="Sigurd Omnes" color="initials" radius="xl"
         />
 
         <div style={{ flex: 1 }}>
           <Text size="sm" fw={500}>
-            Ansatt Catch Wise
+            Sigurd Omnes
           </Text>
 
           <Text c="dimmed" size="xs">

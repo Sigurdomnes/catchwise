@@ -10,7 +10,7 @@ import {
     rem,
     keys,
 } from '@mantine/core';
-import { IconSelector, IconChevronDown, IconChevronUp, IconSearch } from '@tabler/icons-react';
+import { IconSelector, IconChevronDown, IconChevronUp, IconSearch, IconEdit } from '@tabler/icons-react';
 import classes from './TableSort.module.css';
 
 interface RowData {

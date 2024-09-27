@@ -1,8 +1,9 @@
 'use client';
 
+import { CompanyData } from '@/app/api/data/data';
 import { TableSort } from '@/components/TableSort/TableSort';
+import { notFound, useParams } from 'next/navigation';
 import { useEffect, useState } from 'react';
-import { CompanyData } from '../../api/data/data'
 
 interface Params {
   params: {
@@ -36,7 +37,7 @@ export default function CompanyPage({ params }: Params) {
 
     fetchData();
   }, []);
-  
+
   if (loading) return <p>Loading...</p>;
   if (error) return <p>Error: {error}</p>;
 
@@ -45,7 +46,8 @@ export default function CompanyPage({ params }: Params) {
       <h1>Data for {company}</h1>
       <br></br>
       {data &&
-        <TableSort data={ data.tables[0].table }></TableSort>
+        <TableSort 
+        data={ data.tables[0].table }></TableSort>
       }
     </section>
   );

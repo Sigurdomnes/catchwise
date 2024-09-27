@@ -4,9 +4,6 @@ import localFont from "next/font/local";
 import '@mantine/core/styles.css';
 import { createTheme, ColorSchemeScript, MantineProvider } from '@mantine/core';
 import "./globals.css";
-import Nav from "@/zunused/Nav";
-import Header from "@/zunused/Header";
-import { NavbarNested } from "@/zunused/NavbarNested/NavbarNested";
 import { NavbarSegmented } from "@/components/NavbarSegmented/NavbarSegmented";
 import { HeaderSimple } from "@/components/HeaderSimple/HeaderSimple";
 
