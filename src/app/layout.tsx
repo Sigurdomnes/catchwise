@@ -1,56 +1,56 @@
 'use client'
 
-import localFont from "next/font/local";
-import '@mantine/core/styles.css';
-import { createTheme, ColorSchemeScript, MantineProvider } from '@mantine/core';
 import "./globals.css";
-import { NavbarSegmented } from "@/components/NavbarSegmented/NavbarSegmented";
-import { HeaderSimple } from "@/components/HeaderSimple/HeaderSimple";
+import { Provider } from 'react-redux';
+import store from '../redux/store';
+import Navigation from '../components/Navigation/Navigation';
+import styled from 'styled-components';
+import Header from '../components/Header/Header';
+import { useEffect } from 'react';
 
-const geistSans = localFont({
-  src: "../util/fonts/GeistVF.woff",
-  variable: "--font-geist-sans",
-  weight: "100 900",
-});
-const geistMono = localFont({
-  src: "../util/fonts/GeistMonoVF.woff",
-  variable: "--font-geist-mono",
-  weight: "100 900",
-});
-
-const theme = createTheme({
-  /** Your theme override here */
-});
 
 export default function RootLayout({
   children,
 }: Readonly<{
   children: React.ReactNode;
 }>) {
+
+  useEffect(() => {
+    document.body.classList.remove('preload');
+  }, []);
+
   return (
-    <html lang="en">
-      <head>
-        <ColorSchemeScript />
-      </head>
-      <body 
-      className={`${geistSans.variable} ${geistMono.variable}`}
-      style={{
-        height: '100vh', 
-        overflow: 'hidden', 
-        display: 'grid', 
-        gridTemplateRows: 'auto 1fr',
-        gridTemplateColumns:'auto 1fr', 
-      }}>
-        <MantineProvider theme={theme}>
-          <div style={{gridRow: ' 1 /2 ', gridColumn: '1 / 3'}}>
-          <HeaderSimple/>
-          </div>
-          <NavbarSegmented/>
-          <main>
-            {children}
-          </main>
-        </MantineProvider>
-      </body>
-    </html>
+    <Provider store={store}>
+      <html lang="no">
+        <head>
+          <link rel="icon" href="/favicon.ico" />
+        </head>
+        <Body className="preload">
+            <Header />
+            <Div>
+              <Navigation />
+              <Main>
+                {children}
+              </Main>
+            </Div>
+        </Body>
+      </html>
+    </Provider>
   );
 }
+
+const Body = styled.body`
+  height: 100vh;
+  width: 100%;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+`
+
+const Div = styled.div`
+  display: flex;
+`
+
+const Main = styled.main`
+  flex: 1;
+`

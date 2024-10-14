@@ -1,6 +1,7 @@
 :root {
-  --background: #ffffff;
+  --background: #002B31;
   --foreground: #171717;
+  --cwcolor: #002B31;
 }
 
 @media (prefers-color-scheme: dark) {
@@ -10,18 +11,30 @@
   }
 }
 
+@font-face {
+  font-family: BebasNeue;
+  src: url(../public/fonts/Bebas_Neue/BebasNeue-Regular.ttf),
+  format(truetype);
+}
+
 html,
 body {
   max-width: 100vw;
-  overflow-x: hidden;
+  overflow: hidden;
+}
+
+body.preload {
+  visibility: hidden;
 }
 
 body {
-  color: var(--foreground);
+  visibility: visible;
+  color: var(--cwcolor);
   background: var(--background);
   font-family: Arial, Helvetica, sans-serif;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
+  background: #e0e0e0;
 }
 
 * {
@@ -39,4 +52,8 @@ a {
   html {
     color-scheme: dark;
   }
+}
+
+.css-nyu7l0-pathFill {
+  fill: var(--cwcolor);
 }
