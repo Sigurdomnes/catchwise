@@ -1,6 +1,8 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { styled } from 'styled-components';
-import { Company, Section, SectionContent } from '../../utils/interface'
+import { keyframes, styled } from 'styled-components';
+import { Company, Section, SectionContent } from '../../../utils/interface'
+import { TextareaAutosize } from '@mui/base/TextareaAutosize';
+
 
 interface EditableTextFieldProps {
     selectedCompany: Company | null;
@@ -13,11 +15,12 @@ interface EditableTextFieldProps {
 }
 
 const EditableTextField: React.FC<EditableTextFieldProps> = ({ onSuccess, selectedCompany, section, sectionContent, id, text, placeholder }) => {
-    const [textField, setTextField] = useState<string | undefined>('');
+    const [textField, setTextField] = useState<string | undefined>(text || '');
     const [isEditing, setIsEditing] = useState<boolean>(false);
     const [isSaving, setIsSaving] = useState<boolean>(false);
-    const [showSuccessMessage, setShowSuccessMessage] = useState<boolean>(false);
     const textareaRef = useRef<HTMLTextAreaElement | null>(null);
+    const saveTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+    const [hasEdited, setHasEdited] = useState<boolean>(false);
 
     useEffect(() => {
         if (text !== undefined) {
@@ -27,6 +30,7 @@ const EditableTextField: React.FC<EditableTextFieldProps> = ({ onSuccess, select
 
 
     const handleSaveText = async () => {
+        if (!hasEdited || isSaving || !selectedCompany || !id) return;
         setIsSaving(true);
         try {
             let url = '';
@@ -35,22 +39,25 @@ const EditableTextField: React.FC<EditableTextFieldProps> = ({ onSuccess, select
                 url = `/api/companies/${selectedCompany?._id}/sections/${section._id}`;
                 body = {
                     id: sectionContent._id,
-                    textField: textField,
+                    textField: textField || '',
                 };
             } else if (section) {
                 url = `/api/companies/${selectedCompany?._id}/sections/${section._id}`;
                 body = {
                     id: section._id,
-                    name: textField,
+                    name: textField || '',
                     type: 'text',
                 };
             } else if (selectedCompany) {
                 url = `/api/companies/${selectedCompany._id}`;
                 body = {
                     id: selectedCompany._id,
-                    description: textField,
+                    description: textField || '',
                 };
             }
+
+            console.log("Saving with body:", body);
+
             const response = await fetch(url, {
                 method: 'PUT',
                 headers: {
@@ -60,27 +67,23 @@ const EditableTextField: React.FC<EditableTextFieldProps> = ({ onSuccess, select
             });
 
             if (response.ok) {
+                setHasEdited(false);
                 if (onSuccess) onSuccess();
-                setIsEditing(false);
-                setShowSuccessMessage(true);
-                setTimeout(() => setShowSuccessMessage(false), 2000);
             } else {
                 const errorData = await response.json();
                 console.error('Failed to update text:', errorData);
-                alert(`Failed to update text: ${errorData.message}`);
             }
         } catch (error) {
             console.error('Error updating text:', error);
-            alert('An error occurred while updating the text.');
+        } finally {
+            setIsSaving(false);
         }
-        setIsSaving(false);
     };
 
     const handleEditClick = () => {
         setIsEditing(true);
         setTimeout(() => {
             if (textareaRef.current) {
-                adjustTextareaSize();
                 const length = textareaRef.current.value.length;
                 textareaRef.current.focus();
                 textareaRef.current.setSelectionRange(length, length);
@@ -88,30 +91,50 @@ const EditableTextField: React.FC<EditableTextFieldProps> = ({ onSuccess, select
         }, 0);
     };
 
-    const adjustTextareaSize = () => {
-        if (textareaRef.current) {
-            textareaRef.current.style.height = 'auto';
-            textareaRef.current.style.height = `${textareaRef.current.scrollHeight}px`;
-            textareaRef.current.style.width = `${textareaRef.current.scrollWidth}px`;
-        }
-    };
 
     const handleBlur = () => {
+        if (saveTimeoutRef.current) {
+            clearTimeout(saveTimeoutRef.current);
+          }
+        handleSaveText();
         if (!isSaving) setIsEditing(false);
     };
 
+    useEffect(() => {
+        if (saveTimeoutRef.current) {
+            clearTimeout(saveTimeoutRef.current);
+        }
+
+        saveTimeoutRef.current = setTimeout(() => {
+            handleSaveText();
+        }, 1000);
+
+        return () => {
+            if (saveTimeoutRef.current) {
+                clearTimeout(saveTimeoutRef.current);
+            }
+        };
+    }, [textField]);
+
 
     return (
-        <Container key={id}>
+        <Container key={id} placeholder={placeholder || ''}>
             {isEditing ? (
                 <EditableTextarea
                     ref={textareaRef}
                     value={textField}
+                    $hasEdited={hasEdited}
+                    spellCheck={false}
                     onChange={(e) => {
                         setTextField(e.target.value);
-                        adjustTextareaSize();
+                        setHasEdited(true);
                     }}
-                    rows={1}
+                    onKeyDown={(e) => {
+                        if (e.key === 'Enter' && !e.shiftKey) {
+                            e.preventDefault();
+                            handleBlur();
+                        }
+                    }}
                     onBlur={handleBlur}
                     placeholder={`Skriv din ${placeholder ? placeholder : 'tekst'} her...`}
                     autoFocus
@@ -121,53 +144,64 @@ const EditableTextField: React.FC<EditableTextFieldProps> = ({ onSuccess, select
                     {text || `Klikk her for å legge til ${placeholder ? placeholder : 'tekst'}`}
                 </Text>
             )}
-            {isEditing && (
-                <SaveButton
-                    onMouseDown={() => setIsSaving(true)}
-                    onClick={handleSaveText}
-                >Lagre tekst</SaveButton>
-            )}
-            {showSuccessMessage && <SuccessMessage>Lagret!</SuccessMessage>}
         </Container>
     );
 };
 
 export default EditableTextField;
 
-const Container = styled.div`
+const Container = styled.div<{ placeholder: string }>`
   display: flex;
   flex-direction: column;
+  width: 794px;
+  box-sizing: border-box;
+  margin: 1rem 0;
+  > * {
+    text-align: center;
+  }
+ ${({ placeholder }) => placeholder === 'overskrift' && `
+    > * {
+    text-align: left !important;
+    resize: none;
+  }
+  `}
 `
 
-const EditableTextarea = styled.textarea`
+const EditableTextarea = styled(TextareaAutosize) <{ $hasEdited: boolean }>`
   font-weight: inherit;
   padding: 0.5rem;
-  margin: 1rem 0 0;
-  border: 1px solid transparent;
+  border: ${({ $hasEdited }) => $hasEdited ? '1px dotted #ccc' : '1px dashed blue'};
   font-family: inherit;
   font-size: inherit;
-  text-align: center;
-  width: 50vw;
   overflow: hidden;
   background: inherit;
   color: inherit;
+  width: 100%;
+  max-width: 794px;
+  border-radius: 2px;
   outline: none;
+
+`;
+
+const Text = styled.div`
+  padding: 0.5rem;
+  border: 1px solid transparent;
+  font-size: inherit;
+  cursor: pointer;
+  width: 100%;
+  max-width: 794px;
+  text-align: center;
+  white-space: pre-wrap;
+  word-wrap: break-word;
+  overflow-wrap: break-word;
   &:hover {
     border: 1px dashed #ccc;
   }
 `;
 
-const Text = styled.div`
-  padding: 0.5rem;
-  margin: 1rem 0;
-  border: 1px solid transparent;
-  font-size: inherit;
-  cursor: pointer;
-  text-align: center;
-  white-space: pre-wrap;
-  &:hover {
-    border: 1px dashed #ccc;
-  }
+const fadeOut = keyframes`
+  0% { opacity: 1; }
+  100% { opacity: 0; }
 `;
 
 const SuccessMessage = styled.div`
@@ -180,7 +214,8 @@ const SuccessMessage = styled.div`
   text-align: center;
   font-size: 1rem;
   right: 2rem;
-  top: 1rem;
+  bottom: 5rem;
+  animation: ${fadeOut} 3s ease-in-out forwards;
 `;
 
 const SaveButton = styled.button`
@@ -195,7 +230,6 @@ const SaveButton = styled.button`
     border-radius: 4px;
     cursor: pointer;
     transition: background-color 0.2s ease;
-
     &:hover {
         background-color: darkgreen;
     }

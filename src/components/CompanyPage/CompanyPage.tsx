@@ -3,25 +3,50 @@
 import { RootState } from "@/redux/store";
 import { Button } from '@mui/material';
 import { useSelector } from "react-redux";
-import { keyframes, styled } from "styled-components";
-import { useEffect, useState } from 'react';
+import { styled } from "styled-components";
+import { useEffect, useState, useRef } from 'react';
 import { Company, Section as SectionInterface, TableData } from '../../utils/interface'
 import { useParams } from 'next/navigation'
-import EditableTable from '../EditableTable/EditableTable';
-import EditableTextField from '../EditableTable/EditableTextField';
-import BasicPie from "../mui/PieChart";
+import EditableTable from './SectionContent/EditableTable';
+import EditableTextField from './SectionContent/EditableTextField';
+import { FontAwesomeIcon } from '@fortawesome/react-fontawesome'
+import { faPlusCircle, faMinus } from '@fortawesome/free-solid-svg-icons'
+import { BasicPie } from "../mui/PieChart";
 
 
 export default function CompanyPage() {
     const companies = useSelector((state: RootState) => state.company.companies);
     const companyId = useParams<{ id: string }>().id
     const [selectedCompany, setSelectedCompany] = useState<Company | null>(null);
-    const [showSuccessMessage, setShowSuccessMessage] = useState<boolean>(false);
     const [showEditableTable, setShowEditableTable] = useState<Record<string, boolean>>({});
-    const [tables, setTables] = useState<TableData[]>([]);
     const [sections, setSections] = useState<SectionInterface[]>([]);
-    const [isEditingSection, setIsEditingSection] = useState<Record<string, boolean>>({});
-    const [newSectionName, setNewSectionName] = useState<string>('');
+    const [enableEdit, setEnableEdit] = useState<boolean>(true);
+
+    const pdfContentRef = useRef<HTMLDivElement>(null);
+
+    const html2pdf = require('html2pdf.js');
+
+    const exportToPdf = () => {
+        if (pdfContentRef.current) {
+            setEnableEdit(false);
+            const originalOverflow = pdfContentRef.current.style.overflow;
+            pdfContentRef.current.style.overflow = 'visible';
+            const options = {
+                margin: 0,
+                filename: 'exported-page.pdf',
+                image: { type: 'jpeg', quality: 0.98 },
+                html2canvas: { scale: 2, useCORS: true },
+                jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' },
+            };
+
+            html2pdf().from(pdfContentRef.current).set(options).save().then(() => {
+                if (pdfContentRef.current) {
+                    pdfContentRef.current.style.overflow = originalOverflow;
+                    setEnableEdit(true);
+                }
+            });
+        }
+    };
 
 
     useEffect(() => {
@@ -77,29 +102,6 @@ export default function CompanyPage() {
         }
     };
 
-    const handleSectionNameChange = (sectionId: string, newName: string) => {
-        setSections((prevSections) =>
-            prevSections.map((section) =>
-                section._id === sectionId ? { ...section, name: newName } : section
-            )
-        );
-    };
-
-    // Function to handle section description change
-    const handleSectionDescriptionChange = (sectionId: string, newDescription: string) => {
-        setSections((prevSections) =>
-            prevSections.map((section) =>
-                section._id === sectionId ? { ...section, description: newDescription } : section
-            )
-        );
-    };
-
-    // Save section details (send to backend or handle state update)
-    const handleSaveSection = (sectionId: string) => {
-        // Here you can send the section data to the backend for saving
-        setIsEditingSection({ ...isEditingSection, [sectionId]: false }); // Disable editing for this section
-    };
-
     const clearSections = async () => {
         try {
             const response = await fetch(`/api/companies/${companyId}/sections`, {
@@ -134,8 +136,6 @@ export default function CompanyPage() {
             });
 
             if (response.ok) {
-                setShowSuccessMessage(true);
-                setTimeout(() => setShowSuccessMessage(false), 2000);
                 fetchSectionsFromDatabase();
                 console.log(response.json())
             } else {
@@ -174,81 +174,86 @@ export default function CompanyPage() {
 
     return (
         <Container>
-            <H1>{selectedCompany?.name || "Company Name"}</H1>
-            <EditableTextField selectedCompany={selectedCompany} id={companyId} text={selectedCompany?.description} placeholder={"overskrift"} />
+            <PdfArea ref={pdfContentRef}>
+                <H1>{selectedCompany?.name || "Company Name"}</H1>
+                <EditableTextField selectedCompany={selectedCompany} id={companyId} text={selectedCompany?.description} placeholder={"beskrivelse"} />
+                {enableEdit && <SavePdfButton onClick={exportToPdf}>Export to PDF</SavePdfButton>}
+                {/* Sections */}
 
-            {/* Sections */}
+                {sections
+                    .sort((a, b) => a.orderValue - b.orderValue)
+                    .map((section) => (
+                        <Section key={section._id}>
+                            <H2 style={{ display: 'flex' }}>{section.orderValue}:
+                                <EditableTextField onSuccess={fetchSectionsFromDatabase} selectedCompany={selectedCompany} section={section} id={section._id} text={section.name} placeholder={"overskrift"} />
+                            </H2>
 
-            {sections
-                .sort((a, b) => a.orderValue - b.orderValue)
-                .map((section) => (
-                    <Section key={section._id}>
-                        <H2 style={{ display: 'flex' }}>{section.orderValue}:
-                            <EditableTextField onSuccess={fetchSectionsFromDatabase} selectedCompany={selectedCompany} section={section} id={section._id} text={section.name} placeholder={"overskrift"} />
-                        </H2>
-                        <div>
-                        </div>
-
-                        {/* Text area */}
-
-                        {(section.sectionContent ?? [])
-                            .sort((a, b) => a.orderValue - b.orderValue)
-                            .map((content) => {
-                                if (content.type === 'text') {
-                                    return (
-                                        <EditableTextField
-                                            key={content._id}
-                                            selectedCompany={selectedCompany}
-                                            section={section}
-                                            id={content._id?.toString()}
-                                            text={content.textField}
-                                        />
-                                    );
-                                } else if (content.type === 'table') {
-                                    return (
-                                        <TableContainer>
-                                            <Table key={content._id}>
-                                                <TableTitle>{content.tableData?.name}</TableTitle>
-                                                <thead>
-                                                    <tr>
-                                                        {content.tableData?.headers.map((header, index) => (
-                                                            <TableHeaders key={index}>{header}</TableHeaders>
-                                                        ))}
-                                                    </tr>
-                                                </thead>
-                                                <tbody>
-                                                    {content.tableData?.rows.map((row, rowIndex) => (
-                                                        <tr key={rowIndex}>
-                                                            {row.map((cell, cellIndex) => (
-                                                                <TableCells key={cellIndex}>{cell}</TableCells>
+                            {/* Text area */}
+                            {(section.sectionContent ?? [])
+                                .sort((a, b) => a.orderValue - b.orderValue)
+                                .map((content) => {
+                                    if (content.type === 'text') {
+                                        return (
+                                            <EditableTextField
+                                                key={content._id}
+                                                selectedCompany={selectedCompany}
+                                                section={section}
+                                                id={content._id?.toString()}
+                                                text={content.textField}
+                                            />
+                                        );
+                                    } else if (content.type === 'table') {
+                                        const isTwoColumnTable = content.tableData?.headers.length === 2;
+                                        return (
+                                            <TableContainer>
+                                                <Table key={content._id}>
+                                                    <TableTitle>{content.tableData?.name}</TableTitle>
+                                                    <thead>
+                                                        <tr>
+                                                            {content.tableData?.headers.map((header, index) => (
+                                                                <TableHeaders key={index}>{header}</TableHeaders>
                                                             ))}
                                                         </tr>
-                                                    ))}
-                                                </tbody>
-                                            </Table>
-                                        </TableContainer>
-                                    )
-                                }
-                            })
-                        }
-                        {/* Add table */}
-                        {section._id?.toString() &&
-                            <>
-                                <AddTableButton onClick={() => handleAddTableClick(section._id!.toString())}>Legg til ny tabell</AddTableButton>
-                                {showEditableTable[section._id] && (
-                                    <EditableTable sectionId={section._id} onSaveTable={handleSaveTable} />
-                                )}
-                            </>
-                        }
-                    </Section>
-                ))}
-            <Button onClick={clearTables} style={{ position: 'absolute', bottom: '0', color: 'var(--cwcolor)' }}>
-                Clear tables
-            </Button>
-            <Button onClick={clearSections} style={{ position: 'absolute', bottom: '0', left: '45%', color: 'var(--cwcolor)' }}>
-                Clear sections
-            </Button>
-            <Button onClick={handleAddSection}>Add New Section</Button>
+                                                    </thead>
+                                                    <tbody>
+                                                        {content.tableData?.rows.map((row, rowIndex) => (
+                                                            <tr key={rowIndex}>
+                                                                {row.map((cell, cellIndex) => (
+                                                                    <TableCells key={cellIndex}>{cell}</TableCells>
+                                                                ))}
+                                                            </tr>
+                                                        ))}
+                                                    </tbody>
+                                                </Table>
+                                                {isTwoColumnTable ? (
+                                                    // Render pie chart if the table has exactly two columns
+                                                    <BasicPie tableData={content.tableData!} />
+                                                ) : ("")}
+                                                {/*<TableExpandButton><FontAwesomeIcon icon={faPlusCircle} /></TableExpandButton>*/}
+                                            </TableContainer>
+                                        )
+                                    }
+                                })
+                            }
+                            {/* Add table */}
+                            {section._id?.toString() && enableEdit &&
+                                <AddTableContainer>
+                                    <AddTableButton onClick={() => handleAddTableClick(section._id!.toString())}>Legg til tabell</AddTableButton>
+                                    {showEditableTable[section._id] && (
+                                        <EditableTable sectionId={section._id} onSaveTable={handleSaveTable} />
+                                    )}
+                                </AddTableContainer>
+                            }
+                        </Section>
+                    ))}
+                <Button onClick={clearTables} style={{ position: 'absolute', bottom: '0', color: 'var(--cwcolor)' }}>
+                    Clear tables
+                </Button>
+                <Button onClick={clearSections} style={{ position: 'absolute', bottom: '0', left: '45%', color: 'var(--cwcolor)' }}>
+                    Clear sections
+                </Button>
+                <Button onClick={handleAddSection}>Add New Section</Button>
+            </PdfArea>
         </Container>
     );
 }
@@ -258,16 +263,49 @@ const Container = styled.section`
     flex-direction: column;
     align-items: center;
     flex: 1;
-    padding: 1.5rem;
     background: #fff;
-    height: calc(100vh - 3rem);
-    overflow: scroll;
+    width: 100%;
+    margin: 0 auto;
+    overflow: hidden;
+    height: 100vh;
+`
+
+const PdfArea = styled.div`
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    overflow-y: auto;
+    overflow-x: hidden;
+    width: 100%;
+    height: auto;
+    &::-webkit-scrollbar {
+        width: .5rem;
+        background-color: #fff;
+    }
+    &::-webkit-scrollbar-thumb {
+        background-color: #ccc;
+        height: 2rem;
+        border-radius: 10px;
+    }
+`
+
+const SavePdfButton = styled.button`
+    position: absolute;
+    right: 2rem;
+    bottom: 1rem;
+    background: #333;
+    padding: 1rem 2rem;
+    border-radius: 15px;
+    cursor: pointer;
+    &:hover {
+        transform: scale(1.025)
+    }
 `
 
 const H1 = styled.h1`
-    font-family: BebasNeue;
-    letter-spacing: .5rem;
-    font-size: 3rem;
+    padding: 1.5rem 0 0;
+    letter-spacing: .2rem;
+    font-size: 2.5rem;
 `
 
 const H2 = styled.h2`
@@ -281,17 +319,15 @@ const H2 = styled.h2`
 const Section = styled.section`
     display: flex;
     flex-direction: column;
-    min-width: 20vw;
     margin-bottom: 1rem;
     text-align: center;
     border: 1px solid #ccc;
     padding: 2rem;
+    width: 794px;
 `
 
-const fadeOut = keyframes`
-  0% { opacity: 1; }
-  100% { opacity: 0; }
-`;
+const AddTableContainer = styled.div`
+`
 
 const AddTableButton = styled.button`
     margin: 1rem 0;
@@ -302,7 +338,6 @@ const AddTableButton = styled.button`
     border-radius: 4px;
     cursor: pointer;
     transition: background-color 0.2s ease;
-
     &:hover {
         background-color: #005bb5;
     }
@@ -314,7 +349,21 @@ const TableContainer = styled.div`
     align-self: center;
     display: flex;
     justify-content: center;
+    position: relative
 `;
+
+const TableExpandButton = styled.div`
+    right: 6rem;
+    top: .2rem;
+    font-size: 1.5rem;
+    position: absolute;
+    color: #999;
+    cursor: pointer;
+    transition: .2s ease;
+    &:hover {
+        color: darkgreen;
+    }
+`
 
 const Table = styled.table`
     margin-bottom: 1rem;

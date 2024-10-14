@@ -42,13 +42,14 @@ export default function RootLayout({
 const Body = styled.body`
   height: 100vh;
   width: 100%;
-  overflow: hidden;
   display: flex;
+  overflow: hidden;
   flex-direction: column;
 `
 
 const Div = styled.div`
   display: flex;
+  flex: 1;
 `
 
 const Main = styled.main`

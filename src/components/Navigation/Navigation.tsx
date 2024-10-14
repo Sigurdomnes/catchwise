@@ -157,7 +157,7 @@ function Navigation() {
                                 onClick={() => {
                                     handleCompanyClick(company)
                                 }}
-                                isActive={`/company/${company._id}/` === currentPath}
+                                $isActive={`/company/${company._id}/` === currentPath}
                             ><FontAwesomeIcon icon={faBriefcase} />
                                 {company.name}
                                 <CollapseIcon
@@ -187,7 +187,7 @@ function Navigation() {
                                         onClick={() => {
                                             handleCompanyClick(company)
                                         }}
-                                        isActive={currentPath === `/company/${company._id}/`}
+                                        $isActive={currentPath === `/company/${company._id}/`}
                                     >
                                         <FontAwesomeIcon icon={faBriefcase} />
                                         {company.name}
@@ -237,10 +237,10 @@ function Navigation() {
 export default Navigation
 
 const Nav = styled.nav`
-    width: 20rem;
-    height: calc(100vh - 3rem);
+    min-width: 20rem;
+    height: calc(100vh - 2rem);
     border-right: 1px solid #ccc;
-    padding: 0 1rem;
+    padding: 1rem;
     z-index: 2;
     display: flex;
     flex-direction: column;
@@ -277,7 +277,7 @@ const CompanyList = styled.ul`
     list-style: none;
 `
 
-const ListItem = styled.li<{ isActive: boolean }>`
+const ListItem = styled.li<{ $isActive: boolean }>`
     padding: 1rem;
     display: flex;
     gap: .5rem;
@@ -286,8 +286,8 @@ const ListItem = styled.li<{ isActive: boolean }>`
     border: 1px solid var(--cwcolor);;
     border-radius: 5px;
     cursor: pointer;
-    background: ${({ isActive }) => (isActive ? "#333" : "transparent")};
-    color: ${({ isActive }) => (isActive ? "#ccc" : "var(--cwcolor)")};
+    background: ${({ $isActive }) => ($isActive ? "#333" : "transparent")};
+    color: ${({ $isActive }) => ($isActive ? "#ccc" : "var(--cwcolor)")};
     transition: .2s ease;
     &:hover {
         transform: scale(1.025);

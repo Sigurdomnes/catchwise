@@ -25,8 +25,9 @@ export default Header
 
 const HeaderContainer = styled.header`
     width: 100vw;
-    height: 4rem;
+    height: 2.5rem;
     display: flex;
+    background: #ccc;
 `
 
 const LogoContainer = styled.div`
@@ -40,7 +41,7 @@ const LogoContainer = styled.div`
 
 const Shadow = styled.div`
     flex: 1;
-    height: 4rem;
+    height: 2.5rem;
     border-bottom: 1px solid #ccc;
     z-index: 2;
 `

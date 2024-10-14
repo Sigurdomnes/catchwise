@@ -15,7 +15,7 @@ export default function Home() {
   return (
       <div style={{background: '#fff', padding: '5rem', height: 'calc(100vh -  3rem)', display: 'flex', flexDirection: 'column', alignItems: 'center'}}>
         <h1>ESG report generator</h1>
-        <Image src={landing} alt="" width={800}/>
+        <Image src={landing} alt="" width={800} priority/>
         <p>Select or add a new company to start</p>
       </div>
   );

@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import styled from 'styled-components';
-import { TableData } from '../../utils/interface'
+import { TableData } from '../../../utils/interface'
 
 interface EditableTableProps {
     sectionId: string | undefined;
