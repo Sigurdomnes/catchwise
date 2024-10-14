@@ -1,5 +1,20 @@
 services:
-  app:
+  mongodb:
+    image: mongo:latest
+    container_name: mongodb
+    ports:
+      - "27017:27017"
+    volumes:
+      - mongo_data:/data/db
+    networks:
+      - catchwise-esg-app-network
+    healthcheck:
+      test: "mongo --eval 'db.runCommand({ ping: 1 })'"
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      
+  catchwise-esg-app:
     build:
       context: .
       dockerfile: Dockerfile
@@ -9,7 +24,7 @@ services:
       - "3000:3000"
     environment:
       - NODE_ENV=production
-      - MONGODB_URI=mongodb://mongo:27017/ESG
+      - MONGODB_URI=mongodb://mongodb:27017/ESG
     networks:
       - catchwise-esg-app-network
     depends_on:
@@ -28,17 +43,7 @@ services:
     networks:
       - catchwise-esg-app-network
     depends_on:
-      - app
-
-  mongodb:
-    image: mongo:latest
-    container_name: mongodb
-    ports:
-      - "27017:27017"
-    volumes:
-      - mongo_data:/data/db
-    networks:
-      - catchwise-esg-app-network
+      - catchwise-esg-app
 
 volumes:
   mongo_data:
