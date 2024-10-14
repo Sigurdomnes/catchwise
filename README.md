@@ -1,18 +1,26 @@
 ## CatchWise ESG-App
 
-### Local development:
+### Lokalt utviklingsmiljø:
 
-Build: 
+Bygge koden: 
 ```bash
 (root) % npm run build
 ```
 
-Set up locally (with Docker Desktop):
+Sett opp lokalt (med Docker Desktop):
 
 ```bash
 (root) % docker-compose up --build -d
 ```
 
-This starts:
-1. Nginx-server with app exposed on [localhost:80](http://localhost:80)
-2. MongoDB-server on [localhost:27017](http://localhost:27017)
+Dette starter:
+1. Nginx-server med app eksponert på [localhost](http://localhost)
+2. MongoDB-server på [localhost:27017](http://localhost:27017)
+
+
+For hot-reload av next med db:
+
+```bash
+(root) % docker-compose up mongodb
+(root) % npm run dev
+```
