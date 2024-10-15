@@ -12,18 +12,21 @@ import EditableTextField from './SectionContent/EditableTextField';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome'
 import { faPlusCircle, faMinus } from '@fortawesome/free-solid-svg-icons'
 import { BasicPie } from "../mui/PieChart";
+import { setCompanies } from "../../redux/companies/companySlice";
+import { useDispatch } from 'react-redux';
+import { callApi } from "../../utils/api";
 
 
 export default function CompanyPage() {
     const companies = useSelector((state: RootState) => state.company.companies);
     const companyId = useParams<{ id: string }>().id
-    const [selectedCompany, setSelectedCompany] = useState<Company | null>(null);
+    const [currentCompany, setCurrentCompany] = useState<Company | null>(null);
     const [showEditableTable, setShowEditableTable] = useState<Record<string, boolean>>({});
     const [sections, setSections] = useState<SectionInterface[]>([]);
     const [enableEdit, setEnableEdit] = useState<boolean>(true);
+    const dispatch = useDispatch();
 
     const pdfContentRef = useRef<HTMLDivElement>(null);
-
     const html2pdf = require('html2pdf.js');
 
     const exportToPdf = () => {
@@ -48,16 +51,24 @@ export default function CompanyPage() {
         }
     };
 
-
     useEffect(() => {
         if (companyId && companies.length > 0) {
             const company = companies.find((company) => company._id === companyId);
             if (company) {
-                setSelectedCompany(company || null);
+                setCurrentCompany(company || null);
                 fetchSectionsFromDatabase();
             }
         }
     }, [companyId, companies]);
+
+    const fetchCompanies = () => {
+        callApi<Company[]>('api/companies')
+            .then((companies) => {
+                dispatch(setCompanies(companies));
+            }).catch((e: Error) => {
+            console.log("Error fetching companies:", e)
+        });
+    }
 
     const fetchSectionsFromDatabase = async () => {
         try {
@@ -175,8 +186,8 @@ export default function CompanyPage() {
     return (
         <Container>
             <PdfArea ref={pdfContentRef}>
-                <H1>{selectedCompany?.name || "Company Name"}</H1>
-                <EditableTextField selectedCompany={selectedCompany} id={companyId} text={selectedCompany?.description} placeholder={"beskrivelse"} />
+                <H1>{currentCompany?.name || "Company Name"}</H1>
+                <EditableTextField onSuccess={fetchCompanies} selectedCompany={currentCompany} id={companyId} text={currentCompany?.description} placeholder={"beskrivelse"} />
                 {enableEdit && <SavePdfButton onClick={exportToPdf}>Export to PDF</SavePdfButton>}
                 {/* Sections */}
 
@@ -185,7 +196,7 @@ export default function CompanyPage() {
                     .map((section) => (
                         <Section key={section._id}>
                             <H2 style={{ display: 'flex' }}>{section.orderValue}:
-                                <EditableTextField onSuccess={fetchSectionsFromDatabase} selectedCompany={selectedCompany} section={section} id={section._id} text={section.name} placeholder={"overskrift"} />
+                                <EditableTextField onSuccess={fetchSectionsFromDatabase} selectedCompany={currentCompany} section={section} id={section._id} text={section.name} placeholder={"overskrift"} />
                             </H2>
 
                             {/* Text area */}
@@ -196,7 +207,7 @@ export default function CompanyPage() {
                                         return (
                                             <EditableTextField
                                                 key={content._id}
-                                                selectedCompany={selectedCompany}
+                                                selectedCompany={currentCompany}
                                                 section={section}
                                                 id={content._id?.toString()}
                                                 text={content.textField}
@@ -246,13 +257,17 @@ export default function CompanyPage() {
                             }
                         </Section>
                     ))}
-                <Button onClick={clearTables} style={{ position: 'absolute', bottom: '0', color: 'var(--cwcolor)' }}>
-                    Clear tables
-                </Button>
-                <Button onClick={clearSections} style={{ position: 'absolute', bottom: '0', left: '45%', color: 'var(--cwcolor)' }}>
-                    Clear sections
-                </Button>
-                <Button onClick={handleAddSection}>Add New Section</Button>
+                {enableEdit &&
+                    <>
+                        <Button onClick={clearTables} style={{ position: 'absolute', bottom: '0', color: 'var(--cwcolor)' }}>
+                            Clear tables
+                        </Button>
+                        <Button onClick={clearSections} style={{ position: 'absolute', bottom: '0', left: '45%', color: 'var(--cwcolor)' }}>
+                            Clear sections
+                        </Button>
+                        <Button onClick={handleAddSection}>Add New Section</Button>
+                    </>
+                }
             </PdfArea>
         </Container>
     );

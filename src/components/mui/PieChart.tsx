@@ -27,6 +27,8 @@ export const BasicPie: React.FC<BasicPieProps> = ({ tableData }) => {
           arcLabel: (item) => `${item.value}%`,
           arcLabelMinAngle: 35,
           arcLabelRadius: '60%',
+          highlightScope: { fade: 'global', highlight: 'item' },
+          faded: { innerRadius: 30, additionalRadius: -30, color: 'gray' },
           data: chartData, // Use the transformed data
         },
       ]}

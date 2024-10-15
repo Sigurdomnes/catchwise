@@ -3,7 +3,7 @@ services:
     image: mongo:latest
     container_name: mongodb
     ports:
-      - "27017:27017"
+      - "27017"
     volumes:
       - mongo_data:/data/db
     networks:
@@ -21,7 +21,7 @@ services:
       target: runner
     container_name: catchwise-esg-app
     ports:
-      - "3000:3000"
+      - "3000"
     environment:
       - NODE_ENV=production
       - MONGODB_URI=mongodb://mongodb:27017/ESG

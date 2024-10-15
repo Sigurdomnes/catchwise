@@ -4,10 +4,6 @@ const nextConfig = {
     ignoreDuringBuilds: true,
   },
   trailingSlash: true,
-  i18n: {
-    locales: ['no', 'en'],
-    defaultLocale: 'no',
-  },
   webpack: (config, { dev }) => {
     if (dev) {
       config.cache = {
