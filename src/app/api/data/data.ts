@@ -103,6 +103,12 @@ export const companies = [
                         "navn": "Sei",
                         "antall": 1934650,
                         "sted": "Vestfjorden"
+                    },
+                    {
+                        "id": 4,
+                        "navn": "Lange",
+                        "antall": 3920,
+                        "sted": "Vestfjorden"
                     }
                 ]
             },
