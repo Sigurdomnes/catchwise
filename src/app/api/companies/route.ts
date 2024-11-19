@@ -13,7 +13,7 @@ export async function GET() {
       return NextResponse.json({ message: 'No companies found or data format is invalid' }, { status: 404 });
     }
 
-    return NextResponse.json({ message: 'Companies retrieved successfully', companies }, { status: 200 });
+    return NextResponse.json(companies, { status: 200 });
   } catch (e) {
     console.error(e);
     return NextResponse.json({ message: 'Error retrieving companies' }, { status: 500 });
@@ -22,7 +22,7 @@ export async function GET() {
 
 export async function POST(req: Request) {
   try {
-    const { name } = await req.json();
+    const { name, description } = await req.json();
     if (!name) {
       console.log(req.body)
       return NextResponse.json({ message: 'Invalid request. Name is required.' }, { status: 400 });
@@ -32,7 +32,10 @@ export async function POST(req: Request) {
     if (collectionResponse instanceof NextResponse ) return collectionResponse;
 
     const result = await collectionResponse.insertOne({
-      name
+      name: name,
+      description: description || '',
+      archived: false,
+      logoUrl: undefined
     } as OptionalId<Company>);
 
     return NextResponse.json({message: "Company submitted successfully", id: result.insertedId}, { status: 201 });

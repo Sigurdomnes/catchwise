@@ -1,6 +1,6 @@
 import React from 'react'
 import styled from 'styled-components'
-import { CatchWiseLogo } from '../../public/catchwiselogo'
+import { CatchWiseLogo } from '@/assets/catchwiselogo'
 import { useRouter } from 'next/navigation'
 
 function Header() {

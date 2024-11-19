@@ -1,4 +1,3 @@
-import { ObjectId } from 'mongodb';
 import { NextResponse } from 'next/server';
 import { getCollection } from '../../../mongodb';
 import { Section } from '../../../data';
@@ -18,7 +17,7 @@ export async function GET(req: Request, { params }: { params: { companyId: strin
         
         const sections = await collectionResponse.find({ companyId }).toArray();
 
-        return NextResponse.json({ message: 'Sections retrieved successfully', sections }, { status: 200 });
+        return NextResponse.json(sections, { status: 200 });
     } catch (error) {
         console.error('Error retrieving sections:', error);
         return NextResponse.json({ message: 'Error retrieving sections' }, { status: 500 });
@@ -36,7 +35,7 @@ export async function POST(req: Request) {
         }
 
         const result = await collectionResponse.insertOne(sectionData);
-        return NextResponse.json({ message: 'Section saved successfully', id: result.insertedId }, { status: 201 });
+        return NextResponse.json(result.insertedId, { status: 201 });
 
     } catch (error) {
         console.error('Error saving section:', error);

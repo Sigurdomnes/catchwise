@@ -15,6 +15,7 @@ try {
     }
 } catch (error) {
     clientPromise = Promise.resolve(null)
+    console.log(error);
 }
 
 export async function getCollection<T extends Document>(collection: string) {

@@ -1,7 +1,7 @@
 import { ObjectId } from 'mongodb';
 import { NextResponse } from 'next/server';
-import { getCollection } from '../../../../mongodb';
-import { Section, SectionContent } from '../../../../data';
+import { getCollection } from '@/app/api/mongodb';
+import { Section, SectionContent } from '@/app/api/data';
 
 export async function GET(req: Request, { params }: { params: { sectionId: string } }) {
     try {
@@ -55,7 +55,7 @@ export async function POST(req: Request, { params }: { params: { sectionId: stri
 export async function PUT(req: Request, { params }: { params: { sectionId: string } }) {
     try {
         const sectionId = params.sectionId;
-        const { name, description, sectionContent }: Partial<Section> = await req.json();
+        const { name, description }: Partial<Section> = await req.json();
 
         if (!sectionId) {
             return NextResponse.json({ message: 'Section ID is required' }, { status: 400 });
@@ -71,44 +71,10 @@ export async function PUT(req: Request, { params }: { params: { sectionId: strin
             return NextResponse.json({ message: 'Section not found' }, { status: 404 });
         }
 
-        let updateFields: Partial<Section> = {};
+        const updateFields: Partial<Section> = {};
 
         if (name) updateFields.name = name;
         if (description) updateFields.description = description;
-
-        const existingContentLength = section.sectionContent ? section.sectionContent.length : 0;
-
-        if (sectionContent) {
-            const updates = sectionContent.map( async (content, index) => {
-                if (content._id) {
-                    if (content.type === 'table') {
-                        return collectionResponse.updateOne(
-                            { _id: new ObjectId(sectionId), 'sectionContent._id': content._id },
-                            { $set: { 'sectionContent.$.tableData': content.tableData, 'sectionContent.$.orderValue': content.orderValue } }
-                        );
-                    } else if (content.type === 'text') {
-                        return collectionResponse.updateOne(
-                            { _id: new ObjectId(sectionId), 'sectionContent._id': content._id },
-                            { $set: { 'sectionContent.$.textField': content.textField, 'sectionContent.$.orderValue': content.orderValue } }
-                        );
-                    } else if (content.type === 'subsection') {
-                        return collectionResponse.updateOne(
-                            { _id: new ObjectId(sectionId), 'sectionContent._id': content._id },
-                            { $set: { 'sectionContent.$.subsection': content.subsection, 'sectionContent.$.orderValue': content.orderValue } }
-                        );
-                    }
-                } else {
-                    // Push new content into the sectionContent array
-                    const newOrderValue = existingContentLength + index + 1;
-                    return collectionResponse.updateOne(
-                        { _id: new ObjectId(sectionId) },
-                        { $push: { sectionContent: { ...content, orderValue: newOrderValue } } }
-                    );
-                }
-            });
-
-            await Promise.all(updates); // Perform updates for all section contents
-        }
 
         // Update section fields
         if (name || description) {

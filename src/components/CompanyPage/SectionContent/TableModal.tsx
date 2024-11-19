@@ -1,17 +1,35 @@
-import React, { useState } from 'react';
+import React, {useEffect, useState} from 'react';
 import styled from 'styled-components';
-import { TableData } from '../../../utils/interface'
+import { TableData } from '@/utils/interface'
+import {callApi} from "@/utils/api";
+import Checkbox from '@mui/material/Checkbox';
 
 interface EditableTableProps {
     sectionId: string | undefined;
-    onSaveTable: (sectionId: string | undefined, tableData: TableData) => void;
+    tableData?: TableData | null;
+    onAddTable: (sectionId: string, tableData: TableData, type: string) => void;
+    overlayClick: () => void;
+    companyId?: string | undefined;
+    contentId?: string | undefined;
+    onSuccess?: () => void
 }
 
-const EditableTable: React.FC<EditableTableProps> = ({ sectionId, onSaveTable }) => {
+const TableModal: React.FC<EditableTableProps> = ({ sectionId, tableData = null, onAddTable, overlayClick, companyId, contentId, onSuccess }) => {
     const [tableName, setTableName] = useState<string>('');
     const [numColumns, setNumColumns] = useState<number>(2);
     const [headers, setHeaders] = useState<string[]>(Array(2).fill(''));
     const [rows, setRows] = useState<string[][]>([Array(2).fill('')]);
+    const [showHeaders, setShowHeaders] = useState<boolean | undefined>(undefined);
+
+    useEffect(() => {
+        if (tableData) {
+            setTableName(tableData.name);
+            setNumColumns(tableData.headers.length);
+            setHeaders(tableData.headers);
+            setRows(tableData.rows);
+            setShowHeaders(tableData.showHeaders);
+        }
+    }, [tableData]);
 
     const handleHeaderChange = (index: number, value: string) => {
         const newHeaders = [...headers];
@@ -30,12 +48,39 @@ const EditableTable: React.FC<EditableTableProps> = ({ sectionId, onSaveTable })
     };
 
     const handleSaveTable = () => {
-        const tableData: TableData = {
-            name: tableName,
-            headers,
-            rows,
-        };
-        onSaveTable(sectionId, tableData);
+        if (!tableData) {
+            const type = "table";
+            const tableData: TableData = {
+                name: tableName,
+                showHeaders: showHeaders,
+                headers,
+                rows,
+            };
+            onAddTable(sectionId!, tableData, type);
+        } else {
+            const url = `/api/companies/${companyId}/sections/${sectionId}/content/${contentId}`;
+            const body = {
+                type: 'table',
+                tableData: {
+                    name: tableName,
+                    showHeaders: showHeaders,
+                    headers,
+                    rows,
+                }
+            };
+            console.log("Saving with body:", body);
+            callApi<void>(url, 'PUT', body).then(() => {
+                if (onSuccess) onSuccess();
+            }).catch((e: Error) => {
+                console.error('Failed to update table:', e);
+            }).finally(() => {
+                overlayClick();
+            })
+        }
+    };
+
+    const handleCheckboxChange = (event: React.ChangeEvent<HTMLInputElement>) => {
+        setShowHeaders(event.target.checked);
     };
 
     const handleNumColumnsChange = (value: number) => {
@@ -45,7 +90,8 @@ const EditableTable: React.FC<EditableTableProps> = ({ sectionId, onSaveTable })
     };
 
     return (
-        <TableContainer>
+        <Overlay onClick={overlayClick}>
+        <TableContainer onClick={(e) => e.stopPropagation()}>
             <TableNameInput
                 type="text"
                 value={tableName}
@@ -97,16 +143,47 @@ const EditableTable: React.FC<EditableTableProps> = ({ sectionId, onSaveTable })
                 </Select>
                 <Button onClick={addRow}>Ny rad</Button>
                 <SaveButton onClick={handleSaveTable}>Lagre tabell</SaveButton>
+                <Checkbox
+                    checked={showHeaders}
+                    onChange={handleCheckboxChange}
+                    sx={{
+                        color: "gray",
+                        '&.Mui-checked': {
+                            color: "blue",
+                        },
+                    }}
+                />
+                <p style={{marginRight: "auto"}}>Vis beskrivelser</p>
             </Container>
         </TableContainer>
+        </Overlay>
     );
 };
 
-export default EditableTable;
+export default TableModal;
+
+const Overlay = styled.div`
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.5);
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  z-index: 999;
+`;
 
 const TableContainer = styled.div`
-  margin: 2rem 0;
+
   display: flex;
+    padding: 2rem;
+    background: #fff;
+    margin: 0 auto;
+    transform: translateX(10rem);
+    box-shadow: 0 0 10px rgba(0, 0, 0, 0.2);
+    border-radius: 10px;
   flex-direction: column;
   align-items: flex-start;
   min-width: 30vw;
@@ -114,6 +191,7 @@ const TableContainer = styled.div`
 `;
 
 const Table = styled.table`
+
   margin-bottom: 1rem;
   border: 1px solid #ccc;
   border-radius: 4px;
@@ -140,7 +218,7 @@ const TableCells = styled.td`
 
 const Container = styled.div`
     display: flex;
-    gap: .5rem;
+    align-items: center;
     align-self: center;
 `
 
@@ -173,7 +251,6 @@ const Input = styled.input`
     background: transparent;
     border: none;
     width: 100%;
-    height: 100%;
     padding: 0 1.5rem;
     border-radius: 0;
     height: 2rem;
@@ -186,6 +263,7 @@ const Button = styled.button`
   background-color: grey;
   color: white;
   border: none;
+    margin: 0 .5rem;
   border-radius: 4px;
   cursor: pointer;
   height: 2rem;

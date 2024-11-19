@@ -1,45 +1,75 @@
 'use client'
 
-import { RootState } from "@/redux/store";
-import { Button } from '@mui/material';
-import { useSelector } from "react-redux";
-import { styled } from "styled-components";
-import { useEffect, useState, useRef } from 'react';
-import { Company, Section as SectionInterface, TableData } from '../../utils/interface'
-import { useParams } from 'next/navigation'
-import EditableTable from './SectionContent/EditableTable';
+import {RootState} from "@/redux/store";
+import {Button} from '@mui/material';
+import {useSelector} from "react-redux";
+import {styled} from "styled-components";
+import {useEffect, useState, useRef, useCallback} from 'react';
+import {Company, Section as SectionInterface, SubSection, TableData} from '../../utils/interface'
+import {useParams} from 'next/navigation'
+import TableModal from './SectionContent/TableModal';
 import EditableTextField from './SectionContent/EditableTextField';
-import { FontAwesomeIcon } from '@fortawesome/react-fontawesome'
-import { faPlusCircle, faMinus } from '@fortawesome/free-solid-svg-icons'
-import { BasicPie } from "../mui/PieChart";
-import { setCompanies } from "../../redux/companies/companySlice";
-import { useDispatch } from 'react-redux';
-import { callApi } from "../../utils/api";
+// import { FontAwesomeIcon } from '@fortawesome/react-fontawesome'
+// import { faPlusCircle, faMinus } from '@fortawesome/free-solid-svg-icons'
+import {BasicPie} from "../mui/PieChart";
+import {callApi} from "@/utils/api";
+import FrontPage from "@/components/CompanyPage/FrontPage/FrontPage";
 
+type TableState = {
+    tableData: TableData | null,
+    contentId: string | undefined
+}
 
 export default function CompanyPage() {
     const companies = useSelector((state: RootState) => state.company.companies);
     const companyId = useParams<{ id: string }>().id
     const [currentCompany, setCurrentCompany] = useState<Company | null>(null);
-    const [showEditableTable, setShowEditableTable] = useState<Record<string, boolean>>({});
+    const [showTableModal, setShowTableModal] = useState<Record<string, boolean>>({});
+    const [tableDataToEdit, setTableDataToEdit] = useState<TableState>({tableData: null, contentId: undefined});
     const [sections, setSections] = useState<SectionInterface[]>([]);
     const [enableEdit, setEnableEdit] = useState<boolean>(true);
-    const dispatch = useDispatch();
+    const [selectedOrder, setSelectedOrder] = useState<{
+        sectionId: string;
+        contentId: string | null;
+        orderValue: number | null
+    }>({
+        sectionId: '',
+        contentId: null,
+        orderValue: null,
+    });
+
+    // import { PDFDownloadLink, Document, Page, Text } from '@react-pdf/renderer';
+    //
+    // const PdfDocument = () => (
+    //     <Document>
+    //         <Page>
+    //             <Text>This is an exported PDF page.</Text>
+    //         </Page>
+    //     </Document>
+    // );
+    //
+    // const exportToPdf = () => (
+    //     <PDFDownloadLink document={<PdfDocument />} fileName="exported-page.pdf">
+    //         {({ loading }) => (loading ? 'Loading...' : 'Download PDF')}
+    //     </PDFDownloadLink>
+    // );
 
     const pdfContentRef = useRef<HTMLDivElement>(null);
-    const html2pdf = require('html2pdf.js');
 
-    const exportToPdf = () => {
+    const exportToPdf = async () => {
         if (pdfContentRef.current) {
             setEnableEdit(false);
             const originalOverflow = pdfContentRef.current.style.overflow;
             pdfContentRef.current.style.overflow = 'visible';
+            // eslint-disable-next-line @typescript-eslint/ban-ts-comment
+            // @ts-expect-error
+            const html2pdf = (await import('html2pdf.js')).default;
             const options = {
                 margin: 0,
                 filename: 'exported-page.pdf',
-                image: { type: 'jpeg', quality: 0.98 },
-                html2canvas: { scale: 2, useCORS: true },
-                jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' },
+                image: {type: 'jpeg', quality: 1.0},
+                html2canvas: {scale: 3, useCORS: true},
+                jsPDF: {unit: 'mm', format: 'a4', orientation: 'portrait'},
             };
 
             html2pdf().from(pdfContentRef.current).set(options).save().then(() => {
@@ -51,6 +81,16 @@ export default function CompanyPage() {
         }
     };
 
+    const fetchSectionsFromDatabase = useCallback(() => {
+        callApi<SectionInterface[]>(`/api/companies/${companyId}/sections`)
+            .then((sections) => {
+                console.log(sections);
+                setSections(sections);
+            }).catch((e: Error) => {
+            console.log("Error fetching companies:", e)
+        });
+    }, [companyId, setSections])
+
     useEffect(() => {
         if (companyId && companies.length > 0) {
             const company = companies.find((company) => company._id === companyId);
@@ -59,186 +99,216 @@ export default function CompanyPage() {
                 fetchSectionsFromDatabase();
             }
         }
-    }, [companyId, companies]);
+    }, [companyId, companies, fetchSectionsFromDatabase]);
 
-    const fetchCompanies = () => {
-        callApi<Company[]>('api/companies')
-            .then((companies) => {
-                dispatch(setCompanies(companies));
-            }).catch((e: Error) => {
-            console.log("Error fetching companies:", e)
-        });
-    }
-
-    const fetchSectionsFromDatabase = async () => {
-        try {
-            const response = await fetch(`/api/companies/${companyId}/sections`);
-            const data = await response.json();
-            if (response.ok) {
-                console.log('Fetched Sections:', data.sections);
-                setSections(data.sections);
-            } else {
-                console.error('Error fetching sections:', data.message);
-            }
-        } catch (error) {
-            console.error('Error fetching sections:', error);
-        }
-    };
-
-    const handleAddSection = async () => {
-        const newSection: SectionInterface = {
+    const addSectionToDatabase = () => {
+        const body: SectionInterface = {
             companyId: companyId,
             name: '',
             description: '',
             orderValue: sections.length + 1
         };
+        callApi<string>(`/api/companies/${companyId}/sections`, 'POST', body)
+            .then((id) => {
+                setSections([...sections, {...body, _id: id}]);
+            }).catch((e: Error) => {
+            console.log("Error fetching companies:", e)
+        });
+    }
 
-        try {
-            const response = await fetch(`/api/companies/${companyId}/sections`, {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                },
-                body: JSON.stringify(newSection),
-            });
-
-            if (response.ok) {
-                const data = await response.json();
-                setSections([...sections, { ...newSection, _id: data.id }]);
-            } else {
-                console.error('Failed to create new section');
-            }
-        } catch (error) {
-            console.error('Error creating section:', error);
-        }
-    };
-
-    const clearSections = async () => {
-        try {
-            const response = await fetch(`/api/companies/${companyId}/sections`, {
-                method: 'DELETE',
-            });
-
-            if (response.ok) {
-                const data = await response.json();
-                console.log(`${data.deletedCount} sections deleted`);
+    const clearSectionsFromDatabase = () => {
+        callApi<void>(`/api/companies/${companyId}/sections`, 'DELETE')
+            .then(() => {
                 fetchSectionsFromDatabase();
-            } else {
-                const errorData = await response.json();
-                console.error('Error:', errorData.message);
+            }).catch((e: Error) => {
+            console.log("Error fetching companies:", e)
+        });
+    }
+
+    const addSectionContentToDatabase = (sectionId: string, data: TableData | SubSection | string, type: string) => {
+        const section = sections.find(sec => sec._id === sectionId);
+        const contentCount = section?.sectionContent?.length || 0;
+        let body: object | undefined = undefined;
+        if (type === "table") {
+            body = {
+                tableData: data,
+                type: type,
+                orderValue: contentCount + 1
             }
-        } catch (error) {
-            console.error('Error clearing sections:', error);
+            setShowTableModal(prevState => ({
+                ...prevState,
+                [sectionId]: !prevState[sectionId]
+            }));
+        } else if (type === "subsection") {
+            const subSectionCount = section?.sectionContent?.filter(content => content.type === "subsection").length || 0
+            body = {
+                type: type,
+                orderValue: contentCount + 1,
+                subSection: {
+                    orderValue: subSectionCount + 1
+                }
+            };
+        } else if (type === "text") {
+            body = {
+                textField: data,
+                type: type,
+                orderValue: contentCount + 1
+            }
         }
-    };
 
-    const handleSaveTable = async (sectionId: string | undefined, tableData: TableData) => {
-        try {
-            const body = {
-                tableData: tableData,
-                type: 'table'
-            }
-            const response = await fetch(`/api/companies/${companyId}/sections/${sectionId}`, {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                },
-                body: JSON.stringify(body),
-            });
-
-            if (response.ok) {
+        callApi<void>(`/api/companies/${companyId}/sections/${sectionId}`, 'POST', body)
+            .then(() => {
                 fetchSectionsFromDatabase();
-                console.log(response.json())
-            } else {
-                alert('Error saving table.');
-            }
-        } catch (error) {
-            console.error('Failed to save table:', error);
-            alert('An error occurred while saving the table.');
-        }
-    };
+            }).catch((e: Error) => {
+            console.log("Error fetching companies:", e)
+        });
+    }
 
-    const handleAddTableClick = (sectionId: string) => {
-        setShowEditableTable(prevState => ({
+    const handleEditTableClick = (sectionId: string, tableData?: TableData, contentId?: string) => {
+        setShowTableModal(prevState => ({
             ...prevState,
-            [sectionId]: !prevState[sectionId] // Toggle the state for the specific section
+            [sectionId]: !prevState[sectionId]
         }));
+        if (tableData) setTableDataToEdit({tableData, contentId});
+        else if (showTableModal) setTableDataToEdit({tableData: null, contentId: undefined})
+
     };
 
-    const clearTables = async () => {
-        try {
-            const res = await fetch(`/api/companies/${companyId}/tables`, {
-                method: 'DELETE',
-            });
+    const handleOrderClick = (sectionId: string, contentId: string, currentOrder: number) => {
+        setSelectedOrder({sectionId, contentId, orderValue: currentOrder});
+    };
 
-            const data = await res.json();
-            if (res.status === 200) {
-                console.log("Database cleared:", data);
-                fetchSectionsFromDatabase();
-            } else {
-                console.error("Failed to clear companies:", data);
+    // Updating order and rearranging other items
+    const handleOrderChange = (newOrder: number) => {
+        const updatedSections = sections.map(section => {
+            if (section._id === selectedOrder.sectionId) {
+                const updatedContent = section.sectionContent?.map(content => {
+                    // Reorder content based on new order
+                    if (content._id === selectedOrder.contentId) {
+                        return {...content, orderValue: newOrder};
+                    } else if (content.orderValue >= newOrder && content.orderValue < selectedOrder.orderValue!) {
+                        return {...content, orderValue: content.orderValue + 1};
+                    } else if (content.orderValue <= newOrder && content.orderValue > selectedOrder.orderValue!) {
+                        return {...content, orderValue: content.orderValue - 1};
+                    }
+                    return content;
+                });
+                return {...section, sectionContent: updatedContent?.sort((a, b) => a.orderValue - b.orderValue)};
             }
-        } catch (error) {
-            console.error("Error:", error);
-        }
+            return section;
+        });
+
+        setSections(updatedSections);
+        setSelectedOrder({sectionId: '', contentId: null, orderValue: null});
+
+        // Call API to save updated order
+        updatedSections.forEach(section => {
+            section.sectionContent?.forEach(content => {
+                callApi<void>(`/api/companies/${companyId}/sections/${section._id}/content/${content._id}`, 'PUT', {orderValue: content.orderValue})
+                    .catch((e: Error) => {
+                        console.error('Failed to update text:', e);
+                    });
+            });
+        });
     };
+
 
     return (
         <Container>
             <PdfArea ref={pdfContentRef}>
-                <H1>{currentCompany?.name || "Company Name"}</H1>
-                <EditableTextField onSuccess={fetchCompanies} selectedCompany={currentCompany} id={companyId} text={currentCompany?.description} placeholder={"beskrivelse"} />
+                <FrontPage currentCompany={currentCompany}/>
                 {enableEdit && <SavePdfButton onClick={exportToPdf}>Export to PDF</SavePdfButton>}
                 {/* Sections */}
-
                 {sections
                     .sort((a, b) => a.orderValue - b.orderValue)
                     .map((section) => (
                         <Section key={section._id}>
-                            <H2 style={{ display: 'flex' }}>{section.orderValue}:
-                                <EditableTextField onSuccess={fetchSectionsFromDatabase} selectedCompany={currentCompany} section={section} id={section._id} text={section.name} placeholder={"overskrift"} />
+                            <H2 style={{display: 'flex'}}>
+                                {selectedOrder.contentId === section._id ? (
+                                    <input
+                                        type="number"
+                                        value={selectedOrder.orderValue || ""}
+                                        onChange={e => handleOrderChange(Number(e.target.value))}
+                                    />
+                                ) : (
+                                    <span
+                                        onClick={() => handleOrderClick(section._id!, section._id!, section.orderValue)}>
+                                        {section.orderValue}.
+                                    </span>
+                                )}
+                                <EditableTextField onSuccess={fetchSectionsFromDatabase}
+                                                   selectedCompany={currentCompany} section={section} id={section._id}
+                                                   text={section.name} placeholder={"overskrift"}/>
                             </H2>
-
-                            {/* Text area */}
+                            {/* Display section content */}
                             {(section.sectionContent ?? [])
                                 .sort((a, b) => a.orderValue - b.orderValue)
                                 .map((content) => {
-                                    if (content.type === 'text') {
+                                    if (content.type === "subsection" && content.subSection) {
+                                        return (
+                                            <H3 key={content._id} style={{display: 'flex'}}>
+                                                {selectedOrder.contentId === content._id ? (
+                                                    <input
+                                                        type="number"
+                                                        value={selectedOrder.orderValue || ""}
+                                                        onChange={e => handleOrderChange(Number(e.target.value))}
+                                                    />
+                                                ) : (
+                                                    <span
+                                                        onClick={() => handleOrderClick(section._id!, content._id!, content.orderValue)}>
+                                                    {section.orderValue}.{content.subSection.orderValue}.
+                                                </span>
+                                                )}
+                                                <EditableTextField onSuccess={fetchSectionsFromDatabase}
+                                                                   selectedCompany={currentCompany} section={section}
+                                                                   sectionContent={content} id={content.subSection?._id}
+                                                                   text={content.subSection?.name}
+                                                                   placeholder={"overskrift"}/>
+                                            </H3>
+                                        );
+                                    } else if (content.type === 'text') {
                                         return (
                                             <EditableTextField
                                                 key={content._id}
+                                                id={content._id}
+                                                onSuccess={fetchSectionsFromDatabase}
                                                 selectedCompany={currentCompany}
                                                 section={section}
-                                                id={content._id?.toString()}
-                                                text={content.textField}
+                                                sectionContent={content}
+                                                text={content.textField?.text}
                                             />
                                         );
                                     } else if (content.type === 'table') {
                                         const isTwoColumnTable = content.tableData?.headers.length === 2;
                                         return (
-                                            <TableContainer>
-                                                <Table key={content._id}>
+                                            <TableContainer
+                                                key={content._id}
+                                                onClick={() => handleEditTableClick(section._id!, content.tableData!, content._id)}
+                                            >
+                                                <Table>
                                                     <TableTitle>{content.tableData?.name}</TableTitle>
-                                                    <thead>
+                                                    {content.tableData?.showHeaders === undefined || content.tableData?.showHeaders &&
+                                                        <thead>
                                                         <tr>
                                                             {content.tableData?.headers.map((header, index) => (
                                                                 <TableHeaders key={index}>{header}</TableHeaders>
                                                             ))}
                                                         </tr>
-                                                    </thead>
+                                                        </thead>
+                                                    }
                                                     <tbody>
-                                                        {content.tableData?.rows.map((row, rowIndex) => (
-                                                            <tr key={rowIndex}>
-                                                                {row.map((cell, cellIndex) => (
-                                                                    <TableCells key={cellIndex}>{cell}</TableCells>
-                                                                ))}
-                                                            </tr>
-                                                        ))}
+                                                    {content.tableData?.rows.map((row, rowIndex) => (
+                                                        <tr key={rowIndex}>
+                                                            {row.map((cell, cellIndex) => (
+                                                                <TableCells key={cellIndex}>{cell}</TableCells>
+                                                            ))}
+                                                        </tr>
+                                                    ))}
                                                     </tbody>
                                                 </Table>
                                                 {isTwoColumnTable ? (
                                                     // Render pie chart if the table has exactly two columns
-                                                    <BasicPie tableData={content.tableData!} />
+                                                    <BasicPie tableData={content.tableData!}/>
                                                 ) : ("")}
                                                 {/*<TableExpandButton><FontAwesomeIcon icon={faPlusCircle} /></TableExpandButton>*/}
                                             </TableContainer>
@@ -246,26 +316,41 @@ export default function CompanyPage() {
                                     }
                                 })
                             }
-                            {/* Add table */}
+                            {/* Add section content */}
                             {section._id?.toString() && enableEdit &&
-                                <AddTableContainer>
-                                    <AddTableButton onClick={() => handleAddTableClick(section._id!.toString())}>Legg til tabell</AddTableButton>
-                                    {showEditableTable[section._id] && (
-                                        <EditableTable sectionId={section._id} onSaveTable={handleSaveTable} />
-                                    )}
-                                </AddTableContainer>
+                                <>
+                                    <AddContentContainer>
+                                        <AddContentButton onClick={() => handleEditTableClick(section._id!)}>Legg til
+                                            tabell</AddContentButton>
+                                        <AddContentButton
+                                            onClick={() => addSectionContentToDatabase(section._id!, {}, "text")}>Legg
+                                            til fritekst</AddContentButton>
+                                        <AddContentButton
+                                            onClick={() => addSectionContentToDatabase(section._id!, {}, "subsection")}>Ny
+                                            underkategori</AddContentButton>
+                                        {showTableModal[section._id] && (
+                                            <TableModal
+                                                overlayClick={() => handleEditTableClick(section._id!)}
+                                                sectionId={section._id}
+                                                tableData={tableDataToEdit.tableData}
+                                                onAddTable={addSectionContentToDatabase}
+                                                companyId={currentCompany?._id}
+                                                contentId={tableDataToEdit.contentId}
+                                                onSuccess={fetchSectionsFromDatabase}
+                                            />
+                                        )}
+                                    </AddContentContainer>
+                                </>
                             }
                         </Section>
                     ))}
                 {enableEdit &&
                     <>
-                        <Button onClick={clearTables} style={{ position: 'absolute', bottom: '0', color: 'var(--cwcolor)' }}>
-                            Clear tables
-                        </Button>
-                        <Button onClick={clearSections} style={{ position: 'absolute', bottom: '0', left: '45%', color: 'var(--cwcolor)' }}>
+                        <AddSectionButton onClick={addSectionToDatabase}>Legg til ny kategori</AddSectionButton>
+                        <Button onClick={clearSectionsFromDatabase}
+                                style={{position: 'absolute', bottom: '0', left: '45%', color: 'var(--cwcolor)'}}>
                             Clear sections
                         </Button>
-                        <Button onClick={handleAddSection}>Add New Section</Button>
                     </>
                 }
             </PdfArea>
@@ -278,11 +363,12 @@ const Container = styled.section`
     flex-direction: column;
     align-items: center;
     flex: 1;
-    background: #fff;
     width: 100%;
     margin: 0 auto;
+    padding: 1rem 0;
     overflow: hidden;
     height: 100vh;
+    background: #eee;
 `
 
 const PdfArea = styled.div`
@@ -291,16 +377,15 @@ const PdfArea = styled.div`
     align-items: center;
     overflow-y: auto;
     overflow-x: hidden;
-    width: 100%;
+    padding: 0 3rem;
+    width: 794px;
     height: auto;
+    background: #fff;
+    -ms-overflow-style: none;
+    scrollbar-width: none;
+
     &::-webkit-scrollbar {
-        width: .5rem;
-        background-color: #fff;
-    }
-    &::-webkit-scrollbar-thumb {
-        background-color: #ccc;
-        height: 2rem;
-        border-radius: 10px;
+        display: none;
     }
 `
 
@@ -312,23 +397,26 @@ const SavePdfButton = styled.button`
     padding: 1rem 2rem;
     border-radius: 15px;
     cursor: pointer;
+
     &:hover {
         transform: scale(1.025)
     }
-`
-
-const H1 = styled.h1`
-    padding: 1.5rem 0 0;
-    letter-spacing: .2rem;
-    font-size: 2.5rem;
 `
 
 const H2 = styled.h2`
     display: flex;
     align-items: center;
     justify-content: start;
+    margin-top: -1rem;
     font-size: 1.3rem;
-    margin-top: -2rem;
+`
+
+const H3 = styled.h3`
+    display: flex;
+    align-items: center;
+    justify-content: start;
+    font-size: 1rem;
+
 `
 
 const Section = styled.section`
@@ -338,14 +426,30 @@ const Section = styled.section`
     text-align: center;
     border: 1px solid #ccc;
     padding: 2rem;
-    width: 794px;
+    width: 100%;
 `
 
-const AddTableContainer = styled.div`
+const AddContentContainer = styled.div`
 `
 
-const AddTableButton = styled.button`
-    margin: 1rem 0;
+const AddSectionButton = styled.button`
+    margin: 0 .5rem 5rem;
+    padding: .5rem 1rem;
+    background-color: var(--cwcolor);
+    color: white;
+    border: none;
+    border-radius: 4px;
+    cursor: pointer;
+    transition: background-color 0.2s ease;
+
+    &:hover {
+        background-color: #005bb5;
+    }
+
+`
+
+const AddContentButton = styled.button`
+    margin: 1rem .5rem;
     padding: 0.5rem 1rem;
     background-color: var(--cwcolor);
     color: white;
@@ -353,6 +457,7 @@ const AddTableButton = styled.button`
     border-radius: 4px;
     cursor: pointer;
     transition: background-color 0.2s ease;
+
     &:hover {
         background-color: #005bb5;
     }
@@ -360,25 +465,33 @@ const AddTableButton = styled.button`
 
 const TableContainer = styled.div`
     margin-top: 1rem;
-    min-width: 30vw;
+    min-width: 35vw;
     align-self: center;
     display: flex;
+    padding: 1rem 1rem 0 1rem;
+    margin-bottom: 1rem;
     justify-content: center;
-    position: relative
+    position: relative;
+    cursor: pointer;
+    box-sizing: border-box;
+
+    &:hover {
+        outline: 1px dashed #ccc;
+    }
 `;
 
-const TableExpandButton = styled.div`
-    right: 6rem;
-    top: .2rem;
-    font-size: 1.5rem;
-    position: absolute;
-    color: #999;
-    cursor: pointer;
-    transition: .2s ease;
-    &:hover {
-        color: darkgreen;
-    }
-`
+// const TableExpandButton = styled.div`
+//     right: 6rem;
+//     top: .2rem;
+//     font-size: 1.5rem;
+//     position: absolute;
+//     color: #999;
+//     cursor: pointer;
+//     transition: .2s ease;
+//     &:hover {
+//         color: darkgreen;
+//     }
+// `
 
 const Table = styled.table`
     margin-bottom: 1rem;
@@ -399,14 +512,17 @@ const TableTitle = styled.caption`
 const TableHeaders = styled.th`
     font-weight: 600;
     text-align: left;
-    padding: .5rem 3rem .5rem 1.5rem;
+    padding: .25rem 1rem .25rem 1rem;
     border: 1px solid #ccc;
     background: #ccc;
+    color: #333;
+    font-size: .9rem;
+    white-space: nowrap;
 `
 
 const TableCells = styled.td`
     font-size: 1rem;
-    padding: .5rem 3rem .5rem 1.5rem;
+    padding: .4rem 1rem;
     color: #333;
     text-align: left;
     border: 1px solid #ccc;

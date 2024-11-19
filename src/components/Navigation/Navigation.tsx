@@ -5,10 +5,13 @@ import { faBriefcase, faPlus, faChevronDown, faChevronUp } from '@fortawesome/fr
 import { TextField, Button } from '@mui/material';
 import { usePathname, useRouter } from 'next/navigation';
 import { useDispatch } from 'react-redux';
-import { setCompanies } from '../../redux/companies/companySlice';
+import { setCompanies } from '@/redux/companies/companySlice';
 import { useSelector } from 'react-redux';
-import { RootState } from '../../redux/store';
-import { Company } from '../../utils/interface'
+import { RootState } from '@/redux/store';
+import { Company } from '@/utils/interface'
+import {callApi} from "@/utils/api";
+import {IconDefinition} from "@fortawesome/fontawesome-svg-core";
+import {defaultCompanyDescription} from "@/data/defaultCompanyFields";
 
 function Navigation() {
     const [newCompanyName, setNewCompanyName] = React.useState("");
@@ -25,25 +28,20 @@ function Navigation() {
         fetchCompanies();
     }, []);
 
-    const fetchCompanies = async () => {
-        try {
-            const res = await fetch('/api/companies');
-            const data = await res.json();
-            if (res.status === 200) {
-                if (Array.isArray(data.companies)) {
-                    dispatch(setCompanies(data.companies));
-                    console.log("Fetched:", data)
-                }
-            } else {
-                console.error(res.json)
-            }
-        } catch (error) {
-            console.error(error)
-        }
-    };
+    const fetchCompanies = () => {
+        callApi<Company[]>('api/companies')
+            .then((companies) => {
+                // console.log("Companies:" + JSON.stringify(companies, null, 2));
+                dispatch(setCompanies(companies));
+            }).catch((e: Error) => {
+            console.log("Error fetching companies:", e)
+        });
+    }
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
+
+        const descriptionWithCompanyName = defaultCompanyDescription.replaceAll('{bedriften}', newCompanyName);
 
         try {
             const res = await fetch('/api/companies', {
@@ -52,7 +50,8 @@ function Navigation() {
                     'Content-Type': 'application/json',
                 },
                 body: JSON.stringify({
-                    name: newCompanyName
+                    name: newCompanyName,
+                    description: descriptionWithCompanyName
                 })
             });
 
@@ -149,58 +148,51 @@ function Navigation() {
             <Section>
                 <H1>ESG-rapporter</H1>
                 <H2>Bedrifter:</H2>
-                {companies
+                {Array.isArray(companies) && companies
                     .filter((company) => company.archived !== true)
                     .map((company) => (
                         <CompanyList key={company._id}>
                             <ListItem
                                 onClick={() => {
-                                    handleCompanyClick(company)
+                                    handleCompanyClick(company);
+                                    handleSettingsClick(company._id);
                                 }}
                                 $isActive={`/company/${company._id}/` === currentPath}
                             ><FontAwesomeIcon icon={faBriefcase} />
                                 {company.name}
                                 <CollapseIcon
-                                    onClick={(e) => {
-                                        e.stopPropagation();
-                                        handleSettingsClick(company._id);
-                                    }}
-                                    icon={visibleSettingsCompanyId === company._id ? faChevronUp : faChevronDown} />
+                                    icon={visibleSettingsCompanyId === company._id ? faChevronDown : undefined} />
                             </ListItem>
                             {visibleSettingsCompanyId === company._id && (
-                                <SettingsButton bgColor='#444' onClick={() => handleArchiveClick(company)}>Arkiver</SettingsButton>
+                                <SettingsButton $bgColor='#444' onClick={() => handleArchiveClick(company)}>Arkiver</SettingsButton>
                             )
                             }
                         </CompanyList>
                     ))}
                 <H2 onClick={toggleArchivedVisibility} style={{ cursor: 'pointer' }}>
-                    Arkiverte ({companies.filter((company) => company.archived === true).length}):
-                    <CollapseIcon icon={isArchivedVisible ? faChevronUp : faChevronDown} />
+                    Arkiverte ({Array.isArray(companies) && companies.filter((company) => company.archived === true).length}):
+                    <CollapseIcon icon={isArchivedVisible ? faChevronDown : faChevronUp} />
                 </H2>
                 {isArchivedVisible && (
                     <>
-                        {companies
+                        {Array.isArray(companies) && companies
                             .filter((company) => company.archived === true)
                             .map((company) => (
                                 <CompanyList key={company._id}>
                                     <ListItem
                                         onClick={() => {
-                                            handleCompanyClick(company)
+                                            handleCompanyClick(company);
+                                            handleSettingsClick(company._id);
                                         }}
                                         $isActive={currentPath === `/company/${company._id}/`}
                                     >
                                         <FontAwesomeIcon icon={faBriefcase} />
                                         {company.name}
-                                        <CollapseIcon
-                                            onClick={(e) => {
-                                                e.stopPropagation();
-                                                handleSettingsClick(company._id);
-                                            }}
-                                            icon={visibleSettingsCompanyId === company._id ? faChevronUp : faChevronDown} />
+                                        <CollapseIcon icon={visibleSettingsCompanyId === company._id ? faChevronDown : undefined} />
                                     </ListItem>
                                     {visibleSettingsCompanyId === company._id && (
                                         <>
-                                            <SettingsButton bgColor='#444' hoverColor='darkgreen' onClick={() => handleArchiveClick(company)}>Gjenopprett</SettingsButton>
+                                            <SettingsButton $bgColor='#444' $hoverColor='darkgreen' onClick={() => handleArchiveClick(company)}>Gjenopprett</SettingsButton>
                                             <SettingsButton onClick={() => handleDeleteClick(company._id)}>Slett</SettingsButton>
                                         </>
                                     )
@@ -262,11 +254,10 @@ const H1 = styled.h1`
 `
 
 const H2 = styled.h2`
-    font-size: 1rem;
     margin: .5rem 0 0;
     display: flex;
     font-size: .9rem;
-    background: var(--cwcolor);
+    background: #333;
     color: #ccc;
     padding: .5rem 1rem;
     border-radius: 5px;
@@ -286,12 +277,12 @@ const ListItem = styled.li<{ $isActive: boolean }>`
     border: 1px solid var(--cwcolor);;
     border-radius: 5px;
     cursor: pointer;
-    background: ${({ $isActive }) => ($isActive ? "#333" : "transparent")};
+    background: ${({ $isActive }) => ($isActive ? "var(--cwcolor)" : "transparent")};
     color: ${({ $isActive }) => ($isActive ? "#ccc" : "var(--cwcolor)")};
     transition: .2s ease;
     &:hover {
         transform: scale(1.025);
-        background: #333;
+        background: var(--cwcolor);
         color: #ccc;
     }
 `
@@ -333,7 +324,14 @@ const Form = styled.form`
     }
 `
 
-const CollapseIcon = styled(FontAwesomeIcon)`
+const CollapseIcon = ({ icon }: { icon?: IconDefinition }) => {
+    if (!icon) return null;
+    return (
+        <StyledIcon icon={icon} />
+    );
+};
+
+const StyledIcon = styled(FontAwesomeIcon)`
   margin-left: auto;
   margin-top: -.2rem;
   border-radius: 50%;
@@ -344,16 +342,16 @@ const CollapseIcon = styled(FontAwesomeIcon)`
   }
 `;
 
-const SettingsButton = styled.button<{bgColor?: string; hoverColor?: string}>`
+const SettingsButton = styled.button<{$bgColor?: string; $hoverColor?: string}>`
   padding: .5rem 1rem;
   margin: .75rem 0 0 .5rem;
   cursor: pointer;
-  background-color: ${({ bgColor }) => bgColor || '#580000'};
+  background-color: ${({ $bgColor }) => $bgColor || '#580000'};
   color: white;
   border: none;
   border-radius: 4px;
   user-select: none;
   &:hover {
-    background-color: ${({ hoverColor }) => hoverColor || 'darkred'};
+    background-color: ${({ $hoverColor }) => $hoverColor || 'darkred'};
   }
 `

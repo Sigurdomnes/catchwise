@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import landing from '../public/rb_313.png'
+import landing from '@/assets/rb_313.png'
 import Image from 'next/image'
 
 export const metadata: Metadata = {

@@ -1,7 +1,8 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { keyframes, styled } from 'styled-components';
-import { Company, Section, SectionContent } from '../../../utils/interface'
+import {Company, Section, SectionContent} from '@/utils/interface'
 import { TextareaAutosize } from '@mui/base/TextareaAutosize';
+import {callApi} from "@/utils/api";
 
 
 interface EditableTextFieldProps {
@@ -10,11 +11,12 @@ interface EditableTextFieldProps {
     sectionContent?: SectionContent | null;
     id: string | undefined;
     text?: string;
+    type?: string;
     placeholder?: string;
     onSuccess?: () => void;
 }
 
-const EditableTextField: React.FC<EditableTextFieldProps> = ({ onSuccess, selectedCompany, section, sectionContent, id, text, placeholder }) => {
+const EditableTextField: React.FC<EditableTextFieldProps> = ({ onSuccess, selectedCompany, section, sectionContent, id, text, placeholder, type }) => {
     const [textField, setTextField] = useState<string | undefined>(text || '');
     const [isEditing, setIsEditing] = useState<boolean>(false);
     const [isSaving, setIsSaving] = useState<boolean>(false);
@@ -30,54 +32,51 @@ const EditableTextField: React.FC<EditableTextFieldProps> = ({ onSuccess, select
 
 
     const handleSaveText = async () => {
-        if (!hasEdited || isSaving || !selectedCompany || !id) return;
+        if (!hasEdited || isSaving || !selectedCompany) return;
         setIsSaving(true);
-        try {
-            let url = '';
-            let body = {};
-            if (section && sectionContent) {
-                url = `/api/companies/${selectedCompany?._id}/sections/${section._id}`;
-                body = {
-                    id: sectionContent._id,
-                    textField: textField || '',
-                };
-            } else if (section) {
-                url = `/api/companies/${selectedCompany?._id}/sections/${section._id}`;
-                body = {
-                    id: section._id,
-                    name: textField || '',
-                    type: 'text',
-                };
-            } else if (selectedCompany) {
-                url = `/api/companies/${selectedCompany._id}`;
-                body = {
-                    id: selectedCompany._id,
-                    description: textField || '',
-                };
-            }
-
-            console.log("Saving with body:", body);
-
-            const response = await fetch(url, {
-                method: 'PUT',
-                headers: {
-                    'Content-Type': 'application/json',
-                },
-                body: JSON.stringify(body),
-            });
-
-            if (response.ok) {
-                setHasEdited(false);
-                if (onSuccess) onSuccess();
-            } else {
-                const errorData = await response.json();
-                console.error('Failed to update text:', errorData);
-            }
-        } catch (error) {
-            console.error('Error updating text:', error);
-        } finally {
-            setIsSaving(false);
+        let url = '';
+        let body = {};
+        if (sectionContent && section && sectionContent.type === "subsection") {
+            url = `/api/companies/${selectedCompany?._id}/sections/${section._id}/content/${sectionContent._id}`;
+            body = {
+                type: "subsection",
+                subSection: {
+                    name: textField,
+                }
+            };
+        } else if (sectionContent && section) {
+            url = `/api/companies/${selectedCompany?._id}/sections/${section._id}/content/${sectionContent._id}`;
+            body = {
+                type: 'text',
+                textField: {
+                    text: textField
+                }
+            };
+        } else if (section) {
+            url = `/api/companies/${selectedCompany?._id}/sections/${section._id}`;
+            body = {
+                name: textField,
+            };
+        } else if (type === "orgnr") {
+            url = `/api/companies/${selectedCompany._id}`;
+            body = {
+                organisasjonsnummer: textField,
+            };
+        } else if (type === "companydescription") {
+            url = `/api/companies/${selectedCompany._id}`;
+            body = {
+                description: textField,
+            };
         }
+        console.log("Saving with body:", body);
+        callApi<void>(url, 'PUT', body).then(() => {
+            setHasEdited(false);
+            if (onSuccess) onSuccess();
+        }).catch((e: Error) => {
+            console.error('Failed to update text:', e);
+        }).finally(() => {
+            setIsSaving(false);
+        })
     };
 
     const handleEditClick = () => {
@@ -91,13 +90,13 @@ const EditableTextField: React.FC<EditableTextFieldProps> = ({ onSuccess, select
         }, 0);
     };
 
-
     const handleBlur = () => {
         if (saveTimeoutRef.current) {
             clearTimeout(saveTimeoutRef.current);
           }
-        handleSaveText();
-        if (!isSaving) setIsEditing(false);
+        handleSaveText().then(() => {
+            if (!isSaving) setIsEditing(false);
+        });
     };
 
     useEffect(() => {
@@ -106,7 +105,7 @@ const EditableTextField: React.FC<EditableTextFieldProps> = ({ onSuccess, select
         }
 
         saveTimeoutRef.current = setTimeout(() => {
-            handleSaveText();
+            handleSaveText().then();
         }, 1000);
 
         return () => {
@@ -125,7 +124,7 @@ const EditableTextField: React.FC<EditableTextFieldProps> = ({ onSuccess, select
                     value={textField}
                     $hasEdited={hasEdited}
                     spellCheck={false}
-                    onChange={(e) => {
+                    onChange={(e: { target: { value: React.SetStateAction<string | undefined>; }; }) => {
                         setTextField(e.target.value);
                         setHasEdited(true);
                     }}
@@ -153,9 +152,8 @@ export default EditableTextField;
 const Container = styled.div<{ placeholder: string }>`
   display: flex;
   flex-direction: column;
-  width: 794px;
+  width: 100%;
   box-sizing: border-box;
-  margin: 1rem 0;
   > * {
     text-align: center;
   }
@@ -170,17 +168,16 @@ const Container = styled.div<{ placeholder: string }>`
 const EditableTextarea = styled(TextareaAutosize) <{ $hasEdited: boolean }>`
   font-weight: inherit;
   padding: 0.5rem;
-  border: ${({ $hasEdited }) => $hasEdited ? '1px dotted #ccc' : '1px dashed blue'};
+  border: ${({ $hasEdited }) => $hasEdited ? '1px dashed blue' : '1px dotted #ccc'};
   font-family: inherit;
   font-size: inherit;
   overflow: hidden;
   background: inherit;
   color: inherit;
   width: 100%;
-  max-width: 794px;
   border-radius: 2px;
   outline: none;
-
+    line-height: 1.2rem;
 `;
 
 const Text = styled.div`
@@ -189,48 +186,11 @@ const Text = styled.div`
   font-size: inherit;
   cursor: pointer;
   width: 100%;
-  max-width: 794px;
-  text-align: center;
   white-space: pre-wrap;
   word-wrap: break-word;
   overflow-wrap: break-word;
+    line-height: 1.2rem;
   &:hover {
     border: 1px dashed #ccc;
   }
-`;
-
-const fadeOut = keyframes`
-  0% { opacity: 1; }
-  100% { opacity: 0; }
-`;
-
-const SuccessMessage = styled.div`
-  font-weight: 600;
-  padding: .5rem 1rem;
-  background: green;
-  color: white;
-  border-radius: 4px;
-  position: absolute;
-  text-align: center;
-  font-size: 1rem;
-  right: 2rem;
-  bottom: 5rem;
-  animation: ${fadeOut} 3s ease-in-out forwards;
-`;
-
-const SaveButton = styled.button`
-    margin: 1rem 0;
-    padding: 0.5rem 1rem;
-    background-color: darkgreen;
-    color: white;
-    border: none;
-    height: 2.5rem;
-    width: 30%;
-    align-self: center;
-    border-radius: 4px;
-    cursor: pointer;
-    transition: background-color 0.2s ease;
-    &:hover {
-        background-color: darkgreen;
-    }
 `;

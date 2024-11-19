@@ -5,11 +5,11 @@ import { ObjectId } from 'mongodb';
 
 export async function PUT(req: Request, { params }: { params: { companyId: string } }) {
   try {
-    const { description, archived } = await req.json();
+    const { description, organisasjonsnummer, archived } = await req.json();
     const id = params.companyId;
     console.log("id",id)
 
-    if (description === undefined && archived === undefined) {
+    if (description === undefined && archived === undefined && organisasjonsnummer === undefined) {
       return NextResponse.json(
         { message: 'Invalid request. Field(s) are required.' },
         { status: 400 }
@@ -33,6 +33,9 @@ export async function PUT(req: Request, { params }: { params: { companyId: strin
     }
 
     const updateFields: Partial<Company> = {};
+    if (organisasjonsnummer !== undefined) {
+      updateFields.organisasjonsnummer = organisasjonsnummer;
+    }
     if (description !== undefined) {
       updateFields.description = description;
     }

@@ -2,6 +2,7 @@
   "extends": ["next/core-web-vitals", "next/typescript"],
   "rules": {
     "no-unused-vars": "warn",  // Show a warning instead of blocking
-    "import/no-unresolved": "off"  // Turn off import errors
+    "import/no-unresolved": "warn",  // Turn off import errors
+    "@typescript-eslint/no-explicit-any": "warn"
   }
 }

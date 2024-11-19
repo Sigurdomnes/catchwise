@@ -1,12 +1,8 @@
-const BASE_URL =
-  process.env.NODE_ENV === "development"
-    ? process.env.NEXT_PUBLIC_API_BASE_URL || ""
-    : window.location.origin;
-
+const BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL || "";
 
 export async function callApi<T>(
     url: string,
-    method: 'GET' | 'POST' | 'PUT' | 'DELETE' = 'GET',
+    method: 'GET' | 'POST' | 'PUT' | 'PATCH' | 'DELETE' = 'GET',
     body?: object,
     headers?: HeadersInit,
     timeout = 5000
@@ -36,6 +32,6 @@ export async function callApi<T>(
         throw new Error(`HTTP error! Status: ${response.status}, Message: ${errorText}`);
     }
 
-    if (response.status === 204) return response.statusText as string as T;
+    if (response.status === 204) return `${response.status}: ${response.statusText}` as string as T;
     return await response.json();
 }
